@@ -16,3 +16,7 @@ Application web pour compter les glucides d'un repas. Installable en PWA sur mob
 ## Stack
 
 Vanilla HTML/CSS/JS — pas de framework, pas de build.
+
+## Avertissement
+
+Les valeurs de glucides fournies sont indicatives et peuvent varier selon les marques, les modes de préparation et les sources. Cette application ne se substitue pas à un avis médical ou diététique.
