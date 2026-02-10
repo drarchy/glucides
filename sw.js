@@ -1,5 +1,5 @@
-const CACHE_NAME = 'glucides-v2';
-const ASSETS = ['./', 'index.html', 'aliments.js', 'manifest.json', 'icon-192.png', 'icon-512.png'];
+const CACHE_NAME = 'glucides-v4';
+const ASSETS = ['./', 'index.html', 'aliments-light.js', 'aliments-full.js', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(ASSETS)));
