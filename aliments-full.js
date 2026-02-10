@@ -1,6 +1,6 @@
 // Base CIQUAL 2025 — Anses. Table de composition nutritionnelle des aliments Ciqual 2025
 // Licence Ouverte — https://doi.org/10.57745/RDMHWY
-const ALIMENTS = [
+const ALIMENTS_FULL = [
   {nom:"Abat, cuit (aliment moyen)",pct:2.2},
   {nom:"Abricot au sirop (sans précision sur léger ou classique), appertisé, égoutté (aliment moyen)",pct:15.5},
   {nom:"Abricot au sirop léger, appertisé, non égoutté",pct:14},

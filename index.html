@@ -21,6 +21,24 @@ header {
 header h1 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
 header .total { font-size: 32px; font-weight: 700; }
 header .total small { font-size: 16px; font-weight: 400; }
+.source-bar {
+  display: flex; justify-content: center; align-items: center; gap: 6px;
+  padding: 8px 12px; background: #f5f5f5; border-bottom: 1px solid #e0e0e0;
+}
+.source-bar .pills {
+  display: inline-flex; border-radius: 8px; overflow: hidden;
+  border: 1px solid #ccc;
+}
+.source-bar .pills button {
+  border: none; padding: 6px 14px; font-size: 13px; cursor: pointer;
+  background: #fff; color: #555; font-weight: 500;
+}
+.source-bar .pills button.active {
+  background: #2e7d32; color: #fff;
+}
+.source-bar .perso-count {
+  font-size: 12px; color: #888; margin-left: 4px;
+}
 main { padding: 12px; max-width: 600px; margin: 0 auto; }
 .row {
   background: #fff; border-radius: 12px; padding: 12px;
@@ -47,10 +65,18 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
 .dropdown.open { display: block; }
 .dropdown div {
   padding: 10px 12px; font-size: 15px; cursor: pointer;
-  display: flex; justify-content: space-between;
+  display: flex; justify-content: space-between; align-items: center;
 }
 .dropdown div:active, .dropdown div.active { background: #e8f5e9; }
-.dropdown div span { color: #888; font-size: 13px; }
+.dropdown div span.pct { color: #888; font-size: 13px; }
+.dropdown div .del-perso {
+  color: #c62828; font-size: 16px; font-weight: 700; margin-left: 8px;
+  padding: 2px 6px; border-radius: 4px; line-height: 1;
+}
+.dropdown div .del-perso:active { background: #fce4ec; }
+.dropdown .dd-save {
+  color: #2e7d32; font-weight: 600; font-style: italic;
+}
 .btn-delete {
   background: none; border: none; color: #c62828; font-size: 24px;
   cursor: pointer; padding: 8px; line-height: 1; border-radius: 8px;
@@ -76,6 +102,14 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
   <div class="total"><span id="total">0</span><small> g</small></div>
 </header>
 
+<div class="source-bar">
+  <div class="pills">
+    <button id="btn-light" onclick="setSource('light')">Light</button>
+    <button id="btn-full" onclick="setSource('full')">Complète</button>
+  </div>
+  <span class="perso-count" id="perso-count"></span>
+</div>
+
 <main>
   <div id="rows"></div>
   <button class="btn-add" onclick="addRow()">+ Ajouter une ligne</button>
@@ -83,11 +117,37 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
   <p style="margin-top:24px;font-size:11px;color:#aaa;text-align:center;line-height:1.4">Valeurs indicatives pouvant varier selon les produits et préparations. Ne se substitue pas à un avis médical.<br>Données : Anses, Table Ciqual 2025 — Licence Ouverte.</p>
 </main>
 
-<script src="aliments.js"></script>
+<script src="aliments-light.js"></script>
+<script src="aliments-full.js"></script>
 <script>
 let rows = JSON.parse(localStorage.getItem('glucides-rows') || '[]');
+let source = localStorage.getItem('glucides-source') || 'light';
+let perso = JSON.parse(localStorage.getItem('glucides-perso') || '[]');
+
 const container = document.getElementById('rows');
 const totalEl = document.getElementById('total');
+
+function getBase() {
+  return source === 'full' ? ALIMENTS_FULL : ALIMENTS_LIGHT;
+}
+
+function setSource(s) {
+  source = s;
+  localStorage.setItem('glucides-source', s);
+  updateSourceUI();
+}
+
+function updateSourceUI() {
+  document.getElementById('btn-light').classList.toggle('active', source === 'light');
+  document.getElementById('btn-full').classList.toggle('active', source === 'full');
+  const pc = document.getElementById('perso-count');
+  pc.textContent = perso.length ? '★ ' + perso.length + ' perso' : '';
+}
+
+function savePerso() {
+  localStorage.setItem('glucides-perso', JSON.stringify(perso));
+  updateSourceUI();
+}
 
 function save() {
   localStorage.setItem('glucides-rows', JSON.stringify(rows));
@@ -141,13 +201,11 @@ container.addEventListener('input', e => {
   if (!inp.dataset.f) return;
   const i = +inp.dataset.i, f = inp.dataset.f;
   rows[i][f] = f === 'nom' ? inp.value : parseFloat(inp.value) || 0;
-  // update result in same row
   const row = inp.closest('.row');
   const res = row.querySelector('.result');
   const g = Math.round((rows[i].poids * rows[i].pct / 100 || 0) * 10) / 10;
   res.textContent = g;
   update();
-  // show dropdown for name field
   if (f === 'nom') showDropdown(inp, i);
 });
 
@@ -155,19 +213,75 @@ function showDropdown(inp, i) {
   const dd = inp.parentElement.querySelector('.dropdown');
   const q = inp.value.trim().toLowerCase();
   if (q.length === 0) { dd.classList.remove('open'); return; }
-  const matches = ALIMENTS.filter(a => a.nom.toLowerCase().includes(q)).slice(0, 8);
-  if (!matches.length) { dd.classList.remove('open'); return; }
-  dd.innerHTML = matches.map((a, j) =>
+
+  // Search in perso first, then in active base
+  const pMatches = perso.filter(a => a.nom.toLowerCase().includes(q));
+  const bMatches = getBase().filter(a => a.nom.toLowerCase().includes(q));
+
+  // Merge: perso first (starred), then base, limit total to 8
+  const all = [];
+  pMatches.forEach(a => all.push({nom: a.nom, pct: a.pct, perso: true}));
+  bMatches.forEach(a => {
+    if (!all.find(x => x.nom === a.nom)) all.push({nom: a.nom, pct: a.pct, perso: false});
+  });
+  const matches = all.slice(0, 8);
+
+  // If no matches and both nom and pct are filled, offer to save
+  const pctVal = rows[i].pct;
+  const canSave = matches.length === 0 && q.length > 0 && pctVal > 0;
+
+  if (!matches.length && !canSave) { dd.classList.remove('open'); return; }
+
+  let html = matches.map((a, j) =>
     `<div data-ai="${i}" data-aj="${j}" class="${j===0?'active':''}">` +
-    `${esc(a.nom)}<span>${a.pct}%</span></div>`
+    `${a.perso ? '★ ' : ''}${esc(a.nom)}<span class="pct">${a.pct}%</span>` +
+    `${a.perso ? '<span class="del-perso" data-delperso="'+esc(a.nom)+'">×</span>' : ''}` +
+    `</div>`
   ).join('');
+
+  if (canSave) {
+    html += `<div class="dd-save" data-save="${i}">★ Sauvegarder « ${esc(inp.value.trim())} » (${pctVal}%)</div>`;
+  }
+
+  dd.innerHTML = html;
   dd._matches = matches;
   dd.classList.add('open');
 }
 
 container.addEventListener('click', e => {
+  // Delete perso
+  const delBtn = e.target.closest('[data-delperso]');
+  if (delBtn) {
+    e.stopPropagation();
+    const nom = delBtn.dataset.delperso;
+    perso = perso.filter(p => p.nom !== nom);
+    savePerso();
+    // Refresh dropdown
+    const dd = delBtn.closest('.dropdown');
+    const i = +dd.dataset.i;
+    const inp = dd.parentElement.querySelector('input[data-f="nom"]');
+    showDropdown(inp, i);
+    return;
+  }
+
+  // Save perso
+  const saveDiv = e.target.closest('[data-save]');
+  if (saveDiv) {
+    const i = +saveDiv.dataset.save;
+    const nom = rows[i].nom.trim();
+    const pct = rows[i].pct;
+    if (nom && pct > 0 && !perso.find(p => p.nom === nom)) {
+      perso.push({nom, pct});
+      savePerso();
+    }
+    const dd = saveDiv.closest('.dropdown');
+    dd.classList.remove('open');
+    return;
+  }
+
+  // Select aliment
   const item = e.target.closest('.dropdown div');
-  if (!item) return;
+  if (!item || item.classList.contains('dd-save')) return;
   const dd = item.closest('.dropdown');
   const i = +dd.dataset.i;
   const j = +item.dataset.aj;
@@ -186,11 +300,9 @@ function selectAliment(i, a) {
   const g = Math.round((rows[i].poids * rows[i].pct / 100 || 0) * 10) / 10;
   res.textContent = g;
   update();
-  // focus weight input
   row.querySelector('input[data-f="poids"]').focus();
 }
 
-// close dropdowns on outside click
 document.addEventListener('click', e => {
   if (!e.target.closest('.name-field')) {
     container.querySelectorAll('.dropdown.open').forEach(d => d.classList.remove('open'));
@@ -200,7 +312,6 @@ document.addEventListener('click', e => {
 function addRow() {
   rows.push({ nom: '', poids: 0, pct: 0 });
   render();
-  // focus name input of new row
   const inputs = container.querySelectorAll('input[data-f="nom"]');
   if (inputs.length) inputs[inputs.length - 1].focus();
 }
@@ -215,6 +326,7 @@ function resetAll() {
   render();
 }
 
+updateSourceUI();
 if (!rows.length) addRow(); else render();
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
