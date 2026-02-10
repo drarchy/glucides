@@ -196,6 +196,11 @@ function render() {
 
 function esc(s) { return (s || '').replace(/"/g, '&quot;'); }
 
+container.addEventListener('focusin', e => {
+  const inp = e.target;
+  if (inp.dataset.f === 'nom' && inp.value.trim()) showDropdown(inp, +inp.dataset.i);
+});
+
 container.addEventListener('input', e => {
   const inp = e.target;
   if (!inp.dataset.f) return;
@@ -226,9 +231,8 @@ function showDropdown(inp, i) {
   });
   const matches = all.slice(0, 8);
 
-  // If no matches and both nom and pct are filled, offer to save
-  const pctVal = rows[i].pct;
-  const canSave = matches.length === 0 && q.length > 0 && pctVal > 0;
+  // If no matches, offer to save as custom food
+  const canSave = matches.length === 0 && q.length > 0;
 
   if (!matches.length && !canSave) { dd.classList.remove('open'); return; }
 
@@ -240,7 +244,11 @@ function showDropdown(inp, i) {
   ).join('');
 
   if (canSave) {
-    html += `<div class="dd-save" data-save="${i}">★ Sauvegarder « ${esc(inp.value.trim())} » (${pctVal}%)</div>`;
+    const pctVal = rows[i].pct;
+    const label = pctVal > 0
+      ? `★ Sauvegarder « ${esc(inp.value.trim())} » (${pctVal}%)`
+      : `★ Sauvegarder « ${esc(inp.value.trim())} » — remplir % d'abord`;
+    html += `<div class="dd-save" data-save="${i}">${label}</div>`;
   }
 
   dd.innerHTML = html;
@@ -270,12 +278,17 @@ container.addEventListener('click', e => {
     const i = +saveDiv.dataset.save;
     const nom = rows[i].nom.trim();
     const pct = rows[i].pct;
-    if (nom && pct > 0 && !perso.find(p => p.nom === nom)) {
+    const dd = saveDiv.closest('.dropdown');
+    dd.classList.remove('open');
+    if (!pct || pct <= 0) {
+      // Focus the % field so user fills it, then they can re-click name to save
+      container.children[i].querySelector('input[data-f="pct"]').focus();
+      return;
+    }
+    if (nom && !perso.find(p => p.nom === nom)) {
       perso.push({nom, pct});
       savePerso();
     }
-    const dd = saveDiv.closest('.dropdown');
-    dd.classList.remove('open');
     return;
   }
 
