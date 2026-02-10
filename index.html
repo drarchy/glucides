@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compteur de Glucides</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2e7d32">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, system-ui, sans-serif; background: #fafafa; color: #222; }
+header {
+  position: sticky; top: 0; z-index: 10;
+  background: #2e7d32; color: #fff;
+  padding: 16px 20px; text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,.2);
+}
+header h1 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
+header .total { font-size: 32px; font-weight: 700; }
+header .total small { font-size: 16px; font-weight: 400; }
+main { padding: 12px; max-width: 600px; margin: 0 auto; }
+.row {
+  background: #fff; border-radius: 12px; padding: 12px;
+  margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; align-items: end;
+}
+.row.four { grid-template-columns: 1fr; }
+.field { display: flex; flex-direction: column; }
+.field label { font-size: 11px; color: #666; margin-bottom: 2px; text-transform: uppercase; }
+.field input {
+  border: 1px solid #ddd; border-radius: 8px; padding: 10px;
+  font-size: 16px; width: 100%; background: #fafafa;
+}
+.field input:focus { outline: none; border-color: #2e7d32; background: #fff; }
+.field .result { font-size: 18px; font-weight: 600; color: #2e7d32; padding: 10px 0; }
+.row .name-field { grid-column: 1 / -1; }
+.row .name-field input { font-weight: 500; }
+.btn-delete {
+  background: none; border: none; color: #c62828; font-size: 24px;
+  cursor: pointer; padding: 8px; line-height: 1; border-radius: 8px;
+}
+.btn-delete:active { background: #fce4ec; }
+.btn-add {
+  display: block; width: 100%; padding: 14px; margin-top: 4px;
+  background: #2e7d32; color: #fff; border: none; border-radius: 12px;
+  font-size: 16px; font-weight: 600; cursor: pointer;
+}
+.btn-add:active { background: #1b5e20; }
+.btn-reset {
+  display: block; width: 100%; padding: 12px; margin-top: 8px;
+  background: none; color: #999; border: 1px solid #ddd; border-radius: 12px;
+  font-size: 14px; cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Glucides du repas</h1>
+  <div class="total"><span id="total">0</span><small> g</small></div>
+</header>
+
+<main>
+  <div id="rows"></div>
+  <button class="btn-add" onclick="addRow()">+ Ajouter une ligne</button>
+  <button class="btn-reset" onclick="resetAll()">Nouveau repas</button>
+</main>
+
+<script>
+let rows = JSON.parse(localStorage.getItem('glucides-rows') || '[]');
+const container = document.getElementById('rows');
+const totalEl = document.getElementById('total');
+
+function save() {
+  localStorage.setItem('glucides-rows', JSON.stringify(rows));
+}
+
+function update() {
+  let t = 0;
+  rows.forEach(r => { t += (r.poids * r.pct / 100) || 0; });
+  totalEl.textContent = Math.round(t * 10) / 10;
+  save();
+}
+
+function render() {
+  container.innerHTML = '';
+  rows.forEach((r, i) => {
+    const g = Math.round((r.poids * r.pct / 100 || 0) * 10) / 10;
+    const div = document.createElement('div');
+    div.className = 'row';
+    div.innerHTML = `
+      <div class="field name-field">
+        <label>Aliment</label>
+        <input type="text" value="${esc(r.nom)}" placeholder="ex: Riz"
+          data-i="${i}" data-f="nom">
+      </div>
+      <div class="field">
+        <label>Poids (g)</label>
+        <input type="number" inputmode="decimal" value="${r.poids || ''}"
+          placeholder="0" data-i="${i}" data-f="poids">
+      </div>
+      <div class="field">
+        <label>Glucides %</label>
+        <input type="number" inputmode="decimal" value="${r.pct || ''}"
+          placeholder="0" data-i="${i}" data-f="pct">
+      </div>
+      <div class="field" style="text-align:center">
+        <label>= g</label>
+        <div class="result">${g}</div>
+      </div>
+      <button class="btn-delete" onclick="delRow(${i})">×</button>
+    `;
+    container.appendChild(div);
+  });
+  update();
+}
+
+function esc(s) { return (s || '').replace(/"/g, '&quot;'); }
+
+container.addEventListener('input', e => {
+  const inp = e.target;
+  if (!inp.dataset.f) return;
+  const i = +inp.dataset.i, f = inp.dataset.f;
+  rows[i][f] = f === 'nom' ? inp.value : parseFloat(inp.value) || 0;
+  // update result in same row
+  const row = inp.closest('.row');
+  const res = row.querySelector('.result');
+  const g = Math.round((rows[i].poids * rows[i].pct / 100 || 0) * 10) / 10;
+  res.textContent = g;
+  update();
+});
+
+function addRow() {
+  rows.push({ nom: '', poids: 0, pct: 0 });
+  render();
+  // focus name input of new row
+  const inputs = container.querySelectorAll('input[data-f="nom"]');
+  if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+function delRow(i) {
+  rows.splice(i, 1);
+  render();
+}
+
+function resetAll() {
+  rows = [];
+  render();
+}
+
+if (!rows.length) addRow(); else render();
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
