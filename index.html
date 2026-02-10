@@ -289,6 +289,7 @@ function render() {
 }
 
 function esc(s) { return (s || '').replace(/"/g, '&quot;'); }
+function norm(s) { return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
 
 container.addEventListener('focusin', e => {
   const inp = e.target;
@@ -310,12 +311,12 @@ container.addEventListener('input', e => {
 
 function showDropdown(inp, i) {
   const dd = inp.parentElement.querySelector('.dropdown');
-  const q = inp.value.trim().toLowerCase();
+  const q = norm(inp.value.trim());
   if (q.length === 0) { dd.classList.remove('open'); return; }
 
   // Search in perso first, then in active base
-  const pMatches = perso.filter(a => a.nom.toLowerCase().includes(q));
-  const bMatches = getBase().filter(a => a.nom.toLowerCase().includes(q));
+  const pMatches = perso.filter(a => norm(a.nom).includes(q));
+  const bMatches = getBase().filter(a => norm(a.nom).includes(q));
 
   // Merge: perso first (starred), then base, limit total to 8
   const all = [];
@@ -325,8 +326,10 @@ function showDropdown(inp, i) {
   });
   const matches = all.slice(0, 8);
 
-  // If no matches, offer to save as custom food
-  const canSave = matches.length === 0 && q.length > 0;
+  // Offer to save if typed name doesn't exactly match an existing item
+  const exactMatch = all.find(a => norm(a.nom) === q);
+  const alreadyPerso = perso.find(a => norm(a.nom) === q);
+  const canSave = q.length > 0 && !exactMatch && !alreadyPerso;
 
   if (!matches.length && !canSave) { dd.classList.remove('open'); return; }
 
