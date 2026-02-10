@@ -36,9 +36,47 @@ header .total small { font-size: 16px; font-weight: 400; }
 .source-bar .pills button.active {
   background: #2e7d32; color: #fff;
 }
-.source-bar .perso-count {
-  font-size: 12px; color: #888; margin-left: 4px;
+.source-bar .perso-link {
+  font-size: 12px; color: #2e7d32; margin-left: 4px;
+  cursor: pointer; text-decoration: underline;
 }
+.perso-panel {
+  display: none; position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,.4);
+}
+.perso-panel.open { display: flex; justify-content: center; align-items: flex-start; padding-top: 60px; }
+.perso-panel-inner {
+  background: #fff; border-radius: 16px; width: 92%; max-width: 500px;
+  max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,.25);
+}
+.perso-panel-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px; border-bottom: 1px solid #eee;
+}
+.perso-panel-header h2 { font-size: 16px; font-weight: 600; }
+.perso-panel-close {
+  background: none; border: none; font-size: 24px; cursor: pointer;
+  color: #888; padding: 4px 8px; line-height: 1;
+}
+.perso-panel-list { padding: 8px; }
+.perso-item {
+  display: flex; align-items: center; gap: 8px; padding: 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.perso-item input[type="text"] {
+  flex: 1; border: 1px solid #ddd; border-radius: 6px; padding: 8px;
+  font-size: 14px;
+}
+.perso-item input[type="number"] {
+  width: 70px; border: 1px solid #ddd; border-radius: 6px; padding: 8px;
+  font-size: 14px; text-align: right;
+}
+.perso-item input:focus { outline: none; border-color: #2e7d32; }
+.perso-item .perso-del {
+  background: none; border: none; color: #c62828; font-size: 20px;
+  cursor: pointer; padding: 4px 8px; line-height: 1;
+}
+.perso-empty { padding: 24px; text-align: center; color: #999; font-size: 14px; }
 main { padding: 12px; max-width: 600px; margin: 0 auto; }
 .row {
   background: #fff; border-radius: 12px; padding: 12px;
@@ -107,7 +145,17 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
     <button id="btn-light" onclick="setSource('light')">Light</button>
     <button id="btn-full" onclick="setSource('full')">Complète</button>
   </div>
-  <span class="perso-count" id="perso-count"></span>
+  <span class="perso-link" id="perso-link" onclick="openPersoPanel()"></span>
+</div>
+
+<div class="perso-panel" id="perso-panel">
+  <div class="perso-panel-inner">
+    <div class="perso-panel-header">
+      <h2>★ Mes aliments</h2>
+      <button class="perso-panel-close" onclick="closePersoPanel()">×</button>
+    </div>
+    <div class="perso-panel-list" id="perso-list"></div>
+  </div>
 </div>
 
 <main>
@@ -140,9 +188,55 @@ function setSource(s) {
 function updateSourceUI() {
   document.getElementById('btn-light').classList.toggle('active', source === 'light');
   document.getElementById('btn-full').classList.toggle('active', source === 'full');
-  const pc = document.getElementById('perso-count');
-  pc.textContent = perso.length ? '★ ' + perso.length + ' perso' : '';
+  const pl = document.getElementById('perso-link');
+  pl.textContent = perso.length ? '★ ' + perso.length + ' perso' : '';
+  pl.style.display = perso.length ? '' : 'none';
 }
+
+function openPersoPanel() {
+  const panel = document.getElementById('perso-panel');
+  const list = document.getElementById('perso-list');
+  if (!perso.length) {
+    list.innerHTML = '<div class="perso-empty">Aucun aliment personnalisé</div>';
+  } else {
+    list.innerHTML = perso.map((p, i) =>
+      `<div class="perso-item">` +
+      `<input type="text" value="${esc(p.nom)}" data-pi="${i}" data-pf="nom">` +
+      `<input type="number" inputmode="decimal" value="${p.pct}" data-pi="${i}" data-pf="pct" placeholder="%">` +
+      `<span style="font-size:12px;color:#888">%</span>` +
+      `<button class="perso-del" data-pdel="${i}">×</button>` +
+      `</div>`
+    ).join('');
+  }
+  panel.classList.add('open');
+}
+
+function closePersoPanel() {
+  document.getElementById('perso-panel').classList.remove('open');
+}
+
+// Handle edits and deletes in the perso panel
+document.getElementById('perso-panel').addEventListener('click', e => {
+  // Close on backdrop click
+  if (e.target.classList.contains('perso-panel')) { closePersoPanel(); return; }
+  // Delete
+  const del = e.target.closest('[data-pdel]');
+  if (del) {
+    perso.splice(+del.dataset.pdel, 1);
+    savePerso();
+    openPersoPanel(); // re-render
+  }
+});
+
+document.getElementById('perso-panel').addEventListener('input', e => {
+  const inp = e.target;
+  const i = inp.dataset.pi;
+  if (i == null) return;
+  const f = inp.dataset.pf;
+  if (f === 'nom') perso[+i].nom = inp.value;
+  else if (f === 'pct') perso[+i].pct = parseFloat(inp.value) || 0;
+  savePerso();
+});
 
 function savePerso() {
   localStorage.setItem('glucides-perso', JSON.stringify(perso));
