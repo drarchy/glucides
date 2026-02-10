@@ -21,6 +21,62 @@ header {
 header h1 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
 header .total { font-size: 32px; font-weight: 700; }
 header .total small { font-size: 16px; font-weight: 400; }
+.source-bar {
+  display: flex; justify-content: center; align-items: center; gap: 6px;
+  padding: 8px 12px; background: #f5f5f5; border-bottom: 1px solid #e0e0e0;
+}
+.source-bar .pills {
+  display: inline-flex; border-radius: 8px; overflow: hidden;
+  border: 1px solid #ccc;
+}
+.source-bar .pills button {
+  border: none; padding: 6px 14px; font-size: 13px; cursor: pointer;
+  background: #fff; color: #555; font-weight: 500;
+}
+.source-bar .pills button.active {
+  background: #2e7d32; color: #fff;
+}
+.source-bar .perso-link {
+  font-size: 12px; color: #2e7d32; margin-left: 4px;
+  cursor: pointer; text-decoration: underline;
+}
+.perso-panel {
+  display: none; position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,.4);
+}
+.perso-panel.open { display: flex; justify-content: center; align-items: flex-start; padding-top: 60px; }
+.perso-panel-inner {
+  background: #fff; border-radius: 16px; width: 92%; max-width: 500px;
+  max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,.25);
+}
+.perso-panel-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px; border-bottom: 1px solid #eee;
+}
+.perso-panel-header h2 { font-size: 16px; font-weight: 600; }
+.perso-panel-close {
+  background: none; border: none; font-size: 24px; cursor: pointer;
+  color: #888; padding: 4px 8px; line-height: 1;
+}
+.perso-panel-list { padding: 8px; }
+.perso-item {
+  display: flex; align-items: center; gap: 8px; padding: 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.perso-item input[type="text"] {
+  flex: 1; border: 1px solid #ddd; border-radius: 6px; padding: 8px;
+  font-size: 14px;
+}
+.perso-item input[type="number"] {
+  width: 70px; border: 1px solid #ddd; border-radius: 6px; padding: 8px;
+  font-size: 14px; text-align: right;
+}
+.perso-item input:focus { outline: none; border-color: #2e7d32; }
+.perso-item .perso-del {
+  background: none; border: none; color: #c62828; font-size: 20px;
+  cursor: pointer; padding: 4px 8px; line-height: 1;
+}
+.perso-empty { padding: 24px; text-align: center; color: #999; font-size: 14px; }
 main { padding: 12px; max-width: 600px; margin: 0 auto; }
 .row {
   background: #fff; border-radius: 12px; padding: 12px;
@@ -47,10 +103,18 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
 .dropdown.open { display: block; }
 .dropdown div {
   padding: 10px 12px; font-size: 15px; cursor: pointer;
-  display: flex; justify-content: space-between;
+  display: flex; justify-content: space-between; align-items: center;
 }
 .dropdown div:active, .dropdown div.active { background: #e8f5e9; }
-.dropdown div span { color: #888; font-size: 13px; }
+.dropdown div span.pct { color: #888; font-size: 13px; }
+.dropdown div .del-perso {
+  color: #c62828; font-size: 16px; font-weight: 700; margin-left: 8px;
+  padding: 2px 6px; border-radius: 4px; line-height: 1;
+}
+.dropdown div .del-perso:active { background: #fce4ec; }
+.dropdown .dd-save {
+  color: #2e7d32; font-weight: 600; font-style: italic;
+}
 .btn-delete {
   background: none; border: none; color: #c62828; font-size: 24px;
   cursor: pointer; padding: 8px; line-height: 1; border-radius: 8px;
@@ -76,6 +140,24 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
   <div class="total"><span id="total">0</span><small> g</small></div>
 </header>
 
+<div class="source-bar">
+  <div class="pills">
+    <button id="btn-light" onclick="setSource('light')">Light</button>
+    <button id="btn-full" onclick="setSource('full')">Complète</button>
+  </div>
+  <span class="perso-link" id="perso-link" onclick="openPersoPanel()"></span>
+</div>
+
+<div class="perso-panel" id="perso-panel">
+  <div class="perso-panel-inner">
+    <div class="perso-panel-header">
+      <h2>★ Mes aliments</h2>
+      <button class="perso-panel-close" onclick="closePersoPanel()">×</button>
+    </div>
+    <div class="perso-panel-list" id="perso-list"></div>
+  </div>
+</div>
+
 <main>
   <div id="rows"></div>
   <button class="btn-add" onclick="addRow()">+ Ajouter une ligne</button>
@@ -83,11 +165,83 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
   <p style="margin-top:24px;font-size:11px;color:#aaa;text-align:center;line-height:1.4">Valeurs indicatives pouvant varier selon les produits et préparations. Ne se substitue pas à un avis médical.<br>Données : Anses, Table Ciqual 2025 — Licence Ouverte.</p>
 </main>
 
-<script src="aliments.js"></script>
+<script src="aliments-light.js"></script>
+<script src="aliments-full.js"></script>
 <script>
 let rows = JSON.parse(localStorage.getItem('glucides-rows') || '[]');
+let source = localStorage.getItem('glucides-source') || 'light';
+let perso = JSON.parse(localStorage.getItem('glucides-perso') || '[]');
+
 const container = document.getElementById('rows');
 const totalEl = document.getElementById('total');
+
+function getBase() {
+  return source === 'full' ? ALIMENTS_FULL : ALIMENTS_LIGHT;
+}
+
+function setSource(s) {
+  source = s;
+  localStorage.setItem('glucides-source', s);
+  updateSourceUI();
+}
+
+function updateSourceUI() {
+  document.getElementById('btn-light').classList.toggle('active', source === 'light');
+  document.getElementById('btn-full').classList.toggle('active', source === 'full');
+  const pl = document.getElementById('perso-link');
+  pl.textContent = perso.length ? '★ ' + perso.length + ' perso' : '';
+  pl.style.display = perso.length ? '' : 'none';
+}
+
+function openPersoPanel() {
+  const panel = document.getElementById('perso-panel');
+  const list = document.getElementById('perso-list');
+  if (!perso.length) {
+    list.innerHTML = '<div class="perso-empty">Aucun aliment personnalisé</div>';
+  } else {
+    list.innerHTML = perso.map((p, i) =>
+      `<div class="perso-item">` +
+      `<input type="text" value="${esc(p.nom)}" data-pi="${i}" data-pf="nom">` +
+      `<input type="number" inputmode="decimal" value="${p.pct}" data-pi="${i}" data-pf="pct" placeholder="%">` +
+      `<span style="font-size:12px;color:#888">%</span>` +
+      `<button class="perso-del" data-pdel="${i}">×</button>` +
+      `</div>`
+    ).join('');
+  }
+  panel.classList.add('open');
+}
+
+function closePersoPanel() {
+  document.getElementById('perso-panel').classList.remove('open');
+}
+
+// Handle edits and deletes in the perso panel
+document.getElementById('perso-panel').addEventListener('click', e => {
+  // Close on backdrop click
+  if (e.target.classList.contains('perso-panel')) { closePersoPanel(); return; }
+  // Delete
+  const del = e.target.closest('[data-pdel]');
+  if (del) {
+    perso.splice(+del.dataset.pdel, 1);
+    savePerso();
+    openPersoPanel(); // re-render
+  }
+});
+
+document.getElementById('perso-panel').addEventListener('input', e => {
+  const inp = e.target;
+  const i = inp.dataset.pi;
+  if (i == null) return;
+  const f = inp.dataset.pf;
+  if (f === 'nom') perso[+i].nom = inp.value;
+  else if (f === 'pct') perso[+i].pct = parseFloat(inp.value) || 0;
+  savePerso();
+});
+
+function savePerso() {
+  localStorage.setItem('glucides-perso', JSON.stringify(perso));
+  updateSourceUI();
+}
 
 function save() {
   localStorage.setItem('glucides-rows', JSON.stringify(rows));
@@ -136,18 +290,21 @@ function render() {
 
 function esc(s) { return (s || '').replace(/"/g, '&quot;'); }
 
+container.addEventListener('focusin', e => {
+  const inp = e.target;
+  if (inp.dataset.f === 'nom' && inp.value.trim()) showDropdown(inp, +inp.dataset.i);
+});
+
 container.addEventListener('input', e => {
   const inp = e.target;
   if (!inp.dataset.f) return;
   const i = +inp.dataset.i, f = inp.dataset.f;
   rows[i][f] = f === 'nom' ? inp.value : parseFloat(inp.value) || 0;
-  // update result in same row
   const row = inp.closest('.row');
   const res = row.querySelector('.result');
   const g = Math.round((rows[i].poids * rows[i].pct / 100 || 0) * 10) / 10;
   res.textContent = g;
   update();
-  // show dropdown for name field
   if (f === 'nom') showDropdown(inp, i);
 });
 
@@ -155,19 +312,83 @@ function showDropdown(inp, i) {
   const dd = inp.parentElement.querySelector('.dropdown');
   const q = inp.value.trim().toLowerCase();
   if (q.length === 0) { dd.classList.remove('open'); return; }
-  const matches = ALIMENTS.filter(a => a.nom.toLowerCase().includes(q)).slice(0, 8);
-  if (!matches.length) { dd.classList.remove('open'); return; }
-  dd.innerHTML = matches.map((a, j) =>
+
+  // Search in perso first, then in active base
+  const pMatches = perso.filter(a => a.nom.toLowerCase().includes(q));
+  const bMatches = getBase().filter(a => a.nom.toLowerCase().includes(q));
+
+  // Merge: perso first (starred), then base, limit total to 8
+  const all = [];
+  pMatches.forEach(a => all.push({nom: a.nom, pct: a.pct, perso: true}));
+  bMatches.forEach(a => {
+    if (!all.find(x => x.nom === a.nom)) all.push({nom: a.nom, pct: a.pct, perso: false});
+  });
+  const matches = all.slice(0, 8);
+
+  // If no matches, offer to save as custom food
+  const canSave = matches.length === 0 && q.length > 0;
+
+  if (!matches.length && !canSave) { dd.classList.remove('open'); return; }
+
+  let html = matches.map((a, j) =>
     `<div data-ai="${i}" data-aj="${j}" class="${j===0?'active':''}">` +
-    `${esc(a.nom)}<span>${a.pct}%</span></div>`
+    `${a.perso ? '★ ' : ''}${esc(a.nom)}<span class="pct">${a.pct}%</span>` +
+    `${a.perso ? '<span class="del-perso" data-delperso="'+esc(a.nom)+'">×</span>' : ''}` +
+    `</div>`
   ).join('');
+
+  if (canSave) {
+    const pctVal = rows[i].pct;
+    const label = pctVal > 0
+      ? `★ Sauvegarder « ${esc(inp.value.trim())} » (${pctVal}%)`
+      : `★ Sauvegarder « ${esc(inp.value.trim())} » — remplir % d'abord`;
+    html += `<div class="dd-save" data-save="${i}">${label}</div>`;
+  }
+
+  dd.innerHTML = html;
   dd._matches = matches;
   dd.classList.add('open');
 }
 
 container.addEventListener('click', e => {
+  // Delete perso
+  const delBtn = e.target.closest('[data-delperso]');
+  if (delBtn) {
+    e.stopPropagation();
+    const nom = delBtn.dataset.delperso;
+    perso = perso.filter(p => p.nom !== nom);
+    savePerso();
+    // Refresh dropdown
+    const dd = delBtn.closest('.dropdown');
+    const i = +dd.dataset.i;
+    const inp = dd.parentElement.querySelector('input[data-f="nom"]');
+    showDropdown(inp, i);
+    return;
+  }
+
+  // Save perso
+  const saveDiv = e.target.closest('[data-save]');
+  if (saveDiv) {
+    const i = +saveDiv.dataset.save;
+    const nom = rows[i].nom.trim();
+    const pct = rows[i].pct;
+    const dd = saveDiv.closest('.dropdown');
+    dd.classList.remove('open');
+    if (!pct || pct <= 0) {
+      // Focus the % field so user fills it, then they can re-click name to save
+      container.children[i].querySelector('input[data-f="pct"]').focus();
+      return;
+    }
+    if (nom && !perso.find(p => p.nom === nom)) {
+      perso.push({nom, pct});
+      savePerso();
+    }
+    return;
+  }
+
+  // Select aliment
   const item = e.target.closest('.dropdown div');
-  if (!item) return;
+  if (!item || item.classList.contains('dd-save')) return;
   const dd = item.closest('.dropdown');
   const i = +dd.dataset.i;
   const j = +item.dataset.aj;
@@ -186,11 +407,9 @@ function selectAliment(i, a) {
   const g = Math.round((rows[i].poids * rows[i].pct / 100 || 0) * 10) / 10;
   res.textContent = g;
   update();
-  // focus weight input
   row.querySelector('input[data-f="poids"]').focus();
 }
 
-// close dropdowns on outside click
 document.addEventListener('click', e => {
   if (!e.target.closest('.name-field')) {
     container.querySelectorAll('.dropdown.open').forEach(d => d.classList.remove('open'));
@@ -200,7 +419,6 @@ document.addEventListener('click', e => {
 function addRow() {
   rows.push({ nom: '', poids: 0, pct: 0 });
   render();
-  // focus name input of new row
   const inputs = container.querySelectorAll('input[data-f="nom"]');
   if (inputs.length) inputs[inputs.length - 1].focus();
 }
@@ -215,6 +433,7 @@ function resetAll() {
   render();
 }
 
+updateSourceUI();
 if (!rows.length) addRow(); else render();
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
