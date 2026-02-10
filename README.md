@@ -20,3 +20,11 @@ Vanilla HTML/CSS/JS — pas de framework, pas de build.
 ## Avertissement
 
 Les valeurs de glucides fournies sont indicatives et peuvent varier selon les marques, les modes de préparation et les sources. Cette application ne se substitue pas à un avis médical ou diététique.
+
+## Données
+
+Base de données CIQUAL 2025 — 3272 aliments.
+
+> Anses. 2025. Table de composition nutritionnelle des aliments Ciqual 2025. https://doi.org/10.57745/RDMHWY
+
+Données ouvertes sous [Licence Ouverte](https://www.etalab.gouv.fr/licence-ouverte-open-licence/).
