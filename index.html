@@ -112,14 +112,18 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
   padding: 2px 6px; border-radius: 4px; line-height: 1;
 }
 .dropdown div .del-perso:active { background: #fce4ec; }
-.dropdown .dd-save {
-  color: #2e7d32; font-weight: 600; font-style: italic;
-}
 .btn-delete {
   background: none; border: none; color: #c62828; font-size: 24px;
   cursor: pointer; padding: 8px; line-height: 1; border-radius: 8px;
 }
 .btn-delete:active { background: #fce4ec; }
+.row-actions { display: flex; align-items: end; gap: 0; }
+.btn-save-perso {
+  background: none; border: none; color: #ccc; font-size: 20px;
+  cursor: pointer; padding: 8px 0; line-height: 1; border-radius: 8px;
+}
+.btn-save-perso:active { color: #f9a825; }
+.btn-save-perso.saved { color: #f9a825; }
 .btn-add {
   display: block; width: 100%; padding: 14px; margin-top: 4px;
   background: #2e7d32; color: #fff; border: none; border-radius: 12px;
@@ -144,6 +148,7 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
   <div class="pills">
     <button id="btn-light" onclick="setSource('light')">Light</button>
     <button id="btn-full" onclick="setSource('full')">Complète</button>
+    <button id="btn-all" onclick="setSource('all')">Toutes</button>
   </div>
   <span class="perso-link" id="perso-link" onclick="openPersoPanel()"></span>
 </div>
@@ -176,6 +181,14 @@ const container = document.getElementById('rows');
 const totalEl = document.getElementById('total');
 
 function getBase() {
+  if (source === 'all') {
+    const seen = new Set();
+    return [...ALIMENTS_LIGHT, ...ALIMENTS_FULL].filter(a => {
+      if (seen.has(a.nom)) return false;
+      seen.add(a.nom);
+      return true;
+    });
+  }
   return source === 'full' ? ALIMENTS_FULL : ALIMENTS_LIGHT;
 }
 
@@ -188,6 +201,7 @@ function setSource(s) {
 function updateSourceUI() {
   document.getElementById('btn-light').classList.toggle('active', source === 'light');
   document.getElementById('btn-full').classList.toggle('active', source === 'full');
+  document.getElementById('btn-all').classList.toggle('active', source === 'all');
   const pl = document.getElementById('perso-link');
   pl.textContent = perso.length ? '★ ' + perso.length + ' perso' : '';
   pl.style.display = perso.length ? '' : 'none';
@@ -281,7 +295,10 @@ function render() {
         <label>= g</label>
         <div class="result">${g}</div>
       </div>
-      <button class="btn-delete" onclick="delRow(${i})">×</button>
+      <div class="row-actions">
+        <button class="btn-save-perso" onclick="saveRowPerso(${i})" title="Sauvegarder en perso">★</button>
+        <button class="btn-delete" onclick="delRow(${i})">×</button>
+      </div>
     `;
     container.appendChild(div);
   });
@@ -326,27 +343,14 @@ function showDropdown(inp, i) {
   });
   const matches = all.slice(0, 8);
 
-  // Offer to save if typed name doesn't exactly match an existing item
-  const exactMatch = all.find(a => norm(a.nom) === q);
-  const alreadyPerso = perso.find(a => norm(a.nom) === q);
-  const canSave = q.length > 0 && !exactMatch && !alreadyPerso;
+  if (!matches.length) { dd.classList.remove('open'); return; }
 
-  if (!matches.length && !canSave) { dd.classList.remove('open'); return; }
-
-  let html = matches.map((a, j) =>
+  const html = matches.map((a, j) =>
     `<div data-ai="${i}" data-aj="${j}" class="${j===0?'active':''}">` +
     `${a.perso ? '★ ' : ''}${esc(a.nom)}<span class="pct">${a.pct}%</span>` +
     `${a.perso ? '<span class="del-perso" data-delperso="'+esc(a.nom)+'">×</span>' : ''}` +
     `</div>`
   ).join('');
-
-  if (canSave) {
-    const pctVal = rows[i].pct;
-    const label = pctVal > 0
-      ? `★ Sauvegarder « ${esc(inp.value.trim())} » (${pctVal}%)`
-      : `★ Sauvegarder « ${esc(inp.value.trim())} » — remplir % d'abord`;
-    html += `<div class="dd-save" data-save="${i}">${label}</div>`;
-  }
 
   dd.innerHTML = html;
   dd._matches = matches;
@@ -369,26 +373,6 @@ container.addEventListener('click', e => {
     return;
   }
 
-  // Save perso
-  const saveDiv = e.target.closest('[data-save]');
-  if (saveDiv) {
-    const i = +saveDiv.dataset.save;
-    const nom = rows[i].nom.trim();
-    const pct = rows[i].pct;
-    const dd = saveDiv.closest('.dropdown');
-    dd.classList.remove('open');
-    if (!pct || pct <= 0) {
-      // Focus the % field so user fills it, then they can re-click name to save
-      container.children[i].querySelector('input[data-f="pct"]').focus();
-      return;
-    }
-    if (nom && !perso.find(p => p.nom === nom)) {
-      perso.push({nom, pct});
-      savePerso();
-    }
-    return;
-  }
-
   // Select aliment
   const item = e.target.closest('.dropdown div');
   if (!item || item.classList.contains('dd-save')) return;
@@ -399,6 +383,20 @@ container.addEventListener('click', e => {
   selectAliment(i, a);
   dd.classList.remove('open');
 });
+
+function saveRowPerso(i) {
+  const nom = rows[i].nom.trim();
+  const pct = rows[i].pct;
+  if (!nom) return;
+  if (!pct || pct <= 0) {
+    container.children[i].querySelector('input[data-f="pct"]').focus();
+    return;
+  }
+  if (perso.find(p => p.nom === nom)) return;
+  perso.push({nom, pct});
+  savePerso();
+  container.children[i].querySelector('.btn-save-perso').classList.add('saved');
+}
 
 function selectAliment(i, a) {
   rows[i].nom = a.nom;

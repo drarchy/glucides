@@ -1,4 +1,4 @@
-const CACHE_NAME = 'glucides-v4';
+const CACHE_NAME = 'glucides-v5';
 const ASSETS = ['./', 'index.html', 'aliments-light.js', 'aliments-full.js', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
