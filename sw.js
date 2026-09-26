@@ -1,4 +1,4 @@
-const CACHE_NAME = 'glucides-v5';
+const CACHE_NAME = 'glucides-v6';
 const ASSETS = ['./', 'index.html', 'aliments-light.js', 'aliments-full.js', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -16,10 +16,12 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   e.respondWith(
-    fetch(e.request).then(res => {
-      const clone = res.clone();
-      caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
-      return res;
-    }).catch(() => caches.match(e.request))
+    caches.match(e.request).then(cached => {
+      const network = fetch(e.request).then(res => {
+        caches.open(CACHE_NAME).then(c => c.put(e.request, res.clone()));
+        return res;
+      });
+      return cached || network;
+    })
   );
 });
