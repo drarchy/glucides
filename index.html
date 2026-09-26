@@ -313,6 +313,16 @@ container.addEventListener('focusin', e => {
   if (inp.dataset.f === 'nom' && inp.value.trim()) showDropdown(inp, +inp.dataset.i);
 });
 
+container.addEventListener('focusout', e => {
+  const inp = e.target;
+  if (inp.dataset.f === 'nom') {
+    setTimeout(() => {
+      const dd = inp.parentElement.querySelector('.dropdown');
+      if (dd) dd.classList.remove('open');
+    }, 150);
+  }
+});
+
 container.addEventListener('input', e => {
   const inp = e.target;
   if (!inp.dataset.f) return;
