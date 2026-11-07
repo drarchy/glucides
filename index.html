@@ -176,20 +176,20 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
 
 <main id="view-repas">
   <div id="rows"></div>
-  <button class="btn-add" onclick="addRow()">+ Ajouter une ligne</button>
+  <button type="button" class="btn-add" onclick="addRow()">+ Ajouter une ligne</button>
   <button class="btn-reset" onclick="setRef()">Mémoriser comme référence</button>
   <button class="btn-reset" onclick="resetAll()">Nouveau repas</button>
   <p style="margin-top:24px;font-size:11px;color:#aaa;text-align:center;line-height:1.4">Valeurs indicatives pouvant varier selon les produits et préparations. Ne se substitue pas à un avis médical.<br>Données : Anses, Table Ciqual 2025 — Licence Ouverte.</p>
 </main>
 
 <main id="view-perso" class="hidden">
-  <div class="perso-add">
-    <input type="text" id="new-nom" placeholder="Nom de l'aliment" autocomplete="off">
-    <input type="number" inputmode="decimal" id="new-unite" placeholder="g/pc">
-    <input type="number" inputmode="decimal" id="new-pct" placeholder="% gluc.">
+  <form class="perso-add" onsubmit="return false">
+    <input type="text" id="new-nom" placeholder="Nom de l'aliment" autocomplete="off" enterkeyhint="next">
+    <input type="number" inputmode="decimal" id="new-unite" placeholder="g/pc" enterkeyhint="next">
+    <input type="number" inputmode="decimal" id="new-pct" placeholder="% gluc." enterkeyhint="done">
     <p class="perso-add-hint">« g/pc » : poids d'une portion, à remplir pour compter en unités plutôt qu'en grammes (ex. madeleine = 30 g).</p>
-    <button class="btn-add" onclick="addPerso()">+ Ajouter</button>
-  </div>
+    <button type="button" class="btn-add" onclick="addPerso()">+ Ajouter</button>
+  </form>
   <div class="perso-list" id="perso-list"></div>
 
   <div class="perso-backup">
@@ -319,7 +319,11 @@ function importPerso(file) {
 }
 
 viewPerso.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && e.target.closest('.perso-add')) addPerso();
+  if (e.key !== 'Enter' || !e.target.closest('.perso-add')) return;
+  e.preventDefault();
+  const next = { 'new-nom': 'new-unite', 'new-unite': 'new-pct' }[e.target.id];
+  if (next) document.getElementById(next).focus();
+  else addPerso();
 });
 
 viewPerso.addEventListener('click', e => {
@@ -410,33 +414,34 @@ function render() {
   container.innerHTML = '';
   rows.forEach((r, i) => {
     const g = r1(gluc(r));
-    const div = document.createElement('div');
+    const div = document.createElement('form');
     div.className = 'row';
+    div.onsubmit = () => false;
     div.innerHTML = `
       <div class="field name-field">
         <label>Aliment</label>
         <input type="text" value="${esc(r.nom)}" placeholder="ex: Riz" autocomplete="off"
-          data-i="${i}" data-f="nom">
+          enterkeyhint="next" data-i="${i}" data-f="nom">
         <div class="dropdown" data-i="${i}"></div>
       </div>
       <div class="field">
         <label>${r.pc ? 'Nombre' : 'Poids (g)'}</label>
         <input type="number" inputmode="decimal" value="${r.poids || ''}"
-          placeholder="0" data-i="${i}" data-f="poids">
+          placeholder="0" enterkeyhint="next" data-i="${i}" data-f="poids">
       </div>
       <div class="field">
         <label>Glucides %</label>
         <input type="number" inputmode="decimal" value="${r.pct || ''}"
-          placeholder="0" data-i="${i}" data-f="pct">
+          placeholder="0" enterkeyhint="done" data-i="${i}" data-f="pct">
       </div>
       <div class="field" style="text-align:center">
         <label>= g</label>
         <div class="result">${g}</div>
       </div>
       <div class="row-actions">
-        ${r.unite ? `<button class="btn-pc" onclick="togglePc(${i})" title="Grammes ou portions">${r.pc ? 'g|<b>pc</b>' : '<b>g</b>|pc'}</button>` : ''}
-        <button class="btn-save-perso" onclick="saveRowPerso(${i})" title="Sauvegarder en perso">★</button>
-        <button class="btn-delete" onclick="delRow(${i})">×</button>
+        ${r.unite ? `<button type="button" class="btn-pc" onclick="togglePc(${i})" title="Grammes ou portions">${r.pc ? 'g|<b>pc</b>' : '<b>g</b>|pc'}</button>` : ''}
+        <button type="button" class="btn-save-perso" onclick="saveRowPerso(${i})" title="Sauvegarder en perso">★</button>
+        <button type="button" class="btn-delete" onclick="delRow(${i})">×</button>
       </div>
       ${r.pc ? `<div class="row-hint">${r.poids || 0} × ${r.unite} g = ${r1(grams(r))} g</div>` : ''}
     `;
@@ -446,6 +451,14 @@ function render() {
 }
 
 function esc(s) { return (s || '').replace(/"/g, '&quot;'); }
+// 0: the name starts with the query, 1: a word of it does, 2: matches anywhere
+function score(nom, q) {
+  const n = norm(nom);
+  if (n.startsWith(q)) return 0;
+  const at = n.indexOf(q);
+  if (at > 0 && /[^a-z0-9]/.test(n[at - 1])) return 1;
+  return 2;
+}
 function norm(s) { return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
 
 container.addEventListener('focusin', e => {
@@ -461,6 +474,22 @@ container.addEventListener('focusout', e => {
       if (dd) dd.classList.remove('open');
     }, 150);
   }
+});
+
+// Enter moves to the next field rather than picking a suggestion, so a food
+// that is not in the bases can be typed in full from the keyboard
+container.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const inp = e.target;
+  const f = inp.dataset.f;
+  if (!f) return;
+  e.preventDefault();
+  const row = inp.closest('.row');
+  const dd = row.querySelector('.dropdown');
+  if (dd) dd.classList.remove('open');
+  const next = f === 'nom' ? 'poids' : f === 'poids' ? 'pct' : null;
+  if (next) row.querySelector('input[data-f="' + next + '"]').focus();
+  else inp.blur();
 });
 
 container.addEventListener('input', e => {
@@ -481,13 +510,22 @@ function showDropdown(inp, i) {
   const q = norm(inp.value.trim());
   if (q.length === 0) { dd.classList.remove('open'); return; }
 
-  // Priority order: perso, then light base, then full base — deduped by name, 8 max
+  // Every word of the query must appear, in any order
+  const words = q.split(/\s+/).filter(Boolean);
+  const hit = a => { const n = norm(a.nom); return words.every(w => n.includes(w)); };
+
+  // Perso first, whatever their score, then the two bases ranked by relevance
   const all = [];
-  perso.filter(a => norm(a.nom).includes(q))
+  perso.filter(hit)
     .forEach(a => all.push({nom: a.nom, pct: a.pct, unite: a.unite || 0, perso: true}));
-  [...ALIMENTS_LIGHT, ...ALIMENTS_FULL].filter(a => norm(a.nom).includes(q)).forEach(a => {
-    if (!all.find(x => x.nom === a.nom)) all.push({nom: a.nom, pct: a.pct, perso: false});
-  });
+  // src keeps the curated light list ahead of the full one at equal relevance
+  [...ALIMENTS_LIGHT.map(a => ({a, src: 0})), ...ALIMENTS_FULL.map(a => ({a, src: 1}))]
+    .filter(x => hit(x.a))
+    .map(x => ({nom: x.a.nom, pct: x.a.pct, perso: false, src: x.src, score: score(x.a.nom, q)}))
+    .sort((x, y) => x.score - y.score || x.src - y.src || x.nom.length - y.nom.length)
+    .forEach(a => {
+      if (!all.find(x => x.nom === a.nom)) all.push(a);
+    });
   const matches = all.slice(0, 8);
 
   if (!matches.length) { dd.classList.remove('open'); return; }
