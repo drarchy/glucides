@@ -21,6 +21,14 @@ header {
 header h1 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
 header .total { font-size: 32px; font-weight: 700; }
 header .total small { font-size: 16px; font-weight: 400; }
+header .nav-btn {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: #fff; cursor: pointer;
+  font-size: 22px; line-height: 1; padding: 8px 12px;
+}
+header .nav-btn.right { right: 8px; }
+header .nav-btn.left { left: 8px; font-size: 28px; }
+.hidden { display: none; }
 .update-bar {
   display: none; width: 100%; padding: 10px; border: none;
   background: #f9a825; color: #3e2723; font-size: 14px; font-weight: 600;
@@ -28,46 +36,30 @@ header .total small { font-size: 16px; font-weight: 400; }
 }
 .update-bar.show { display: block; }
 .update-bar:active { background: #f57f17; }
-.source-bar {
-  display: flex; justify-content: center; align-items: center;
-  padding: 8px 12px; background: #f5f5f5; border-bottom: 1px solid #e0e0e0;
+.perso-add {
+  background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  display: grid; grid-template-columns: 1fr 90px; gap: 8px;
 }
-.source-bar .perso-link {
-  font-size: 13px; color: #2e7d32;
-  cursor: pointer; text-decoration: underline;
+.perso-add .btn-add { grid-column: 1 / -1; margin-top: 0; }
+.perso-list {
+  background: #fff; border-radius: 12px; padding: 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.1);
 }
-.perso-panel {
-  display: none; position: fixed; inset: 0; z-index: 100;
-  background: rgba(0,0,0,.4);
-}
-.perso-panel.open { display: flex; justify-content: center; align-items: flex-start; padding-top: 60px; }
-.perso-panel-inner {
-  background: #fff; border-radius: 16px; width: 92%; max-width: 500px;
-  max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,.25);
-}
-.perso-panel-header {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 16px; border-bottom: 1px solid #eee;
-}
-.perso-panel-header h2 { font-size: 16px; font-weight: 600; }
-.perso-panel-close {
-  background: none; border: none; font-size: 24px; cursor: pointer;
-  color: #888; padding: 4px 8px; line-height: 1;
-}
-.perso-panel-list { padding: 8px; }
 .perso-item {
   display: flex; align-items: center; gap: 8px; padding: 8px;
   border-bottom: 1px solid #f0f0f0;
 }
-.perso-item input[type="text"] {
+.perso-item input[type="text"], .perso-add input[type="text"] {
   flex: 1; border: 1px solid #ddd; border-radius: 6px; padding: 8px;
-  font-size: 14px;
+  font-size: 16px; min-width: 0;
 }
-.perso-item input[type="number"] {
+.perso-item input[type="number"], .perso-add input[type="number"] {
   width: 70px; border: 1px solid #ddd; border-radius: 6px; padding: 8px;
-  font-size: 14px; text-align: right;
+  font-size: 16px; text-align: right;
 }
-.perso-item input:focus { outline: none; border-color: #2e7d32; }
+.perso-add input[type="number"] { width: 100%; }
+.perso-item input:focus, .perso-add input:focus { outline: none; border-color: #2e7d32; }
 .perso-item .perso-del {
   background: none; border: none; color: #c62828; font-size: 20px;
   cursor: pointer; padding: 4px 8px; line-height: 1;
@@ -136,31 +128,28 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
 <body>
 
 <header>
-  <h1>Glucides du repas</h1>
-  <div class="total"><span id="total">0</span><small> g</small></div>
+  <h1 id="page-title">Glucides du repas</h1>
+  <div class="total" id="header-total"><span id="total">0</span><small> g</small></div>
+  <button class="nav-btn right" id="btn-perso" title="Aliments perso" onclick="location.hash='perso'">⚙</button>
+  <button class="nav-btn left hidden" id="btn-back" title="Retour" onclick="history.back()">‹</button>
 </header>
 
 <button class="update-bar" id="update-bar">Nouvelle version disponible — Recharger</button>
 
-<div class="source-bar" id="source-bar">
-  <span class="perso-link" id="perso-link" onclick="openPersoPanel()"></span>
-</div>
-
-<div class="perso-panel" id="perso-panel">
-  <div class="perso-panel-inner">
-    <div class="perso-panel-header">
-      <h2>★ Mes aliments</h2>
-      <button class="perso-panel-close" onclick="closePersoPanel()">×</button>
-    </div>
-    <div class="perso-panel-list" id="perso-list"></div>
-  </div>
-</div>
-
-<main>
+<main id="view-repas">
   <div id="rows"></div>
   <button class="btn-add" onclick="addRow()">+ Ajouter une ligne</button>
   <button class="btn-reset" onclick="resetAll()">Nouveau repas</button>
   <p style="margin-top:24px;font-size:11px;color:#aaa;text-align:center;line-height:1.4">Valeurs indicatives pouvant varier selon les produits et préparations. Ne se substitue pas à un avis médical.<br>Données : Anses, Table Ciqual 2025 — Licence Ouverte.</p>
+</main>
+
+<main id="view-perso" class="hidden">
+  <div class="perso-add">
+    <input type="text" id="new-nom" placeholder="Nom de l'aliment" autocomplete="off">
+    <input type="number" inputmode="decimal" id="new-pct" placeholder="% gluc.">
+    <button class="btn-add" onclick="addPerso()">+ Ajouter</button>
+  </div>
+  <div class="perso-list" id="perso-list"></div>
 </main>
 
 <script src="aliments-light.js"></script>
@@ -172,48 +161,67 @@ let perso = JSON.parse(localStorage.getItem('glucides-perso') || '[]');
 const container = document.getElementById('rows');
 const totalEl = document.getElementById('total');
 
-function updatePersoLink() {
-  const pl = document.getElementById('perso-link');
-  pl.textContent = perso.length ? '★ ' + perso.length + ' perso' : '';
-  document.getElementById('source-bar').style.display = perso.length ? '' : 'none';
+const viewPerso = document.getElementById('view-perso');
+
+function route() {
+  const onPerso = location.hash === '#perso';
+  viewPerso.classList.toggle('hidden', !onPerso);
+  document.getElementById('view-repas').classList.toggle('hidden', onPerso);
+  document.getElementById('header-total').classList.toggle('hidden', onPerso);
+  document.getElementById('btn-perso').classList.toggle('hidden', onPerso);
+  document.getElementById('btn-back').classList.toggle('hidden', !onPerso);
+  document.getElementById('page-title').textContent = onPerso ? '★ Aliments perso' : 'Glucides du repas';
+  if (onPerso) renderPerso();
 }
 
-function openPersoPanel() {
-  const panel = document.getElementById('perso-panel');
+window.addEventListener('hashchange', route);
+
+function renderPerso() {
   const list = document.getElementById('perso-list');
   if (!perso.length) {
     list.innerHTML = '<div class="perso-empty">Aucun aliment personnalisé</div>';
-  } else {
-    list.innerHTML = perso.map((p, i) =>
-      `<div class="perso-item">` +
-      `<input type="text" value="${esc(p.nom)}" data-pi="${i}" data-pf="nom">` +
-      `<input type="number" inputmode="decimal" value="${p.pct}" data-pi="${i}" data-pf="pct" placeholder="%">` +
-      `<span style="font-size:12px;color:#888">%</span>` +
-      `<button class="perso-del" data-pdel="${i}">×</button>` +
-      `</div>`
-    ).join('');
+    return;
   }
-  panel.classList.add('open');
+  list.innerHTML = perso.map((p, i) =>
+    `<div class="perso-item">` +
+    `<input type="text" value="${esc(p.nom)}" data-pi="${i}" data-pf="nom">` +
+    `<input type="number" inputmode="decimal" value="${p.pct}" data-pi="${i}" data-pf="pct" placeholder="%">` +
+    `<span style="font-size:12px;color:#888">%</span>` +
+    `<button class="perso-del" data-pdel="${i}">×</button>` +
+    `</div>`
+  ).join('');
 }
 
-function closePersoPanel() {
-  document.getElementById('perso-panel').classList.remove('open');
+function addPerso() {
+  const nomInp = document.getElementById('new-nom');
+  const pctInp = document.getElementById('new-pct');
+  const nom = nomInp.value.trim();
+  const pct = parseFloat(pctInp.value) || 0;
+  if (!nom) { nomInp.focus(); return; }
+  if (pct <= 0) { pctInp.focus(); return; }
+  if (perso.find(p => p.nom === nom)) { nomInp.focus(); return; }
+  perso.push({ nom, pct });
+  savePerso();
+  nomInp.value = '';
+  pctInp.value = '';
+  renderPerso();
+  nomInp.focus();
 }
 
-// Handle edits and deletes in the perso panel
-document.getElementById('perso-panel').addEventListener('click', e => {
-  // Close on backdrop click
-  if (e.target.classList.contains('perso-panel')) { closePersoPanel(); return; }
-  // Delete
+viewPerso.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.closest('.perso-add')) addPerso();
+});
+
+viewPerso.addEventListener('click', e => {
   const del = e.target.closest('[data-pdel]');
   if (del) {
     perso.splice(+del.dataset.pdel, 1);
     savePerso();
-    openPersoPanel(); // re-render
+    renderPerso();
   }
 });
 
-document.getElementById('perso-panel').addEventListener('input', e => {
+viewPerso.addEventListener('input', e => {
   const inp = e.target;
   const i = inp.dataset.pi;
   if (i == null) return;
@@ -225,7 +233,6 @@ document.getElementById('perso-panel').addEventListener('input', e => {
 
 function savePerso() {
   localStorage.setItem('glucides-perso', JSON.stringify(perso));
-  updatePersoLink();
 }
 
 function save() {
@@ -414,8 +421,8 @@ function resetAll() {
   render();
 }
 
-updatePersoLink();
 if (!rows.length) addRow(); else render();
+route();
 
 // Register after load so the service worker never competes with the first render
 if ('serviceWorker' in navigator) {
