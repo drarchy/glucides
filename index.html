@@ -21,6 +21,13 @@ header {
 header h1 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
 header .total { font-size: 32px; font-weight: 700; }
 header .total small { font-size: 16px; font-weight: 400; }
+.update-bar {
+  display: none; width: 100%; padding: 10px; border: none;
+  background: #f9a825; color: #3e2723; font-size: 14px; font-weight: 600;
+  cursor: pointer; text-align: center;
+}
+.update-bar.show { display: block; }
+.update-bar:active { background: #f57f17; }
 .source-bar {
   display: flex; justify-content: center; align-items: center;
   padding: 8px 12px; background: #f5f5f5; border-bottom: 1px solid #e0e0e0;
@@ -132,6 +139,8 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
   <h1>Glucides du repas</h1>
   <div class="total"><span id="total">0</span><small> g</small></div>
 </header>
+
+<button class="update-bar" id="update-bar">Nouvelle version disponible — Recharger</button>
 
 <div class="source-bar" id="source-bar">
   <span class="perso-link" id="perso-link" onclick="openPersoPanel()"></span>
@@ -408,7 +417,44 @@ function resetAll() {
 updatePersoLink();
 if (!rows.length) addRow(); else render();
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+// Register after load so the service worker never competes with the first render
+if ('serviceWorker' in navigator) {
+  const bar = document.getElementById('update-bar');
+  let reloading = false;
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloading) return;
+    reloading = true;
+    location.reload();
+  });
+
+  function offerUpdate(reg) {
+    if (!reg.waiting || !navigator.serviceWorker.controller) return;
+    bar.classList.add('show');
+    bar.onclick = () => {
+      bar.classList.remove('show');
+      reg.waiting.postMessage('SKIP_WAITING');
+    };
+  }
+
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+      offerUpdate(reg);
+      reg.addEventListener('updatefound', () => {
+        const sw = reg.installing;
+        if (!sw) return;
+        sw.addEventListener('statechange', () => {
+          if (sw.state === 'installed') offerUpdate(reg);
+        });
+      });
+      // Check for a new version in the background, never on the critical path
+      reg.update().catch(() => {});
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update().catch(() => {});
+      });
+    }).catch(() => {});
+  });
+}
 </script>
 </body>
 </html>
