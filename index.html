@@ -39,7 +39,11 @@ header .nav-btn.left { left: 8px; font-size: 28px; }
 .perso-add {
   background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 12px;
   box-shadow: 0 1px 3px rgba(0,0,0,.1);
-  display: grid; grid-template-columns: 1fr 90px; gap: 8px;
+  display: grid; grid-template-columns: 1fr 80px 80px; gap: 8px;
+}
+.perso-add input[type="text"] { grid-column: 1 / -1; }
+.perso-add-hint {
+  grid-column: 1 / -1; font-size: 11px; color: #888; line-height: 1.4;
 }
 .perso-add .btn-add { grid-column: 1 / -1; margin-top: 0; }
 .perso-list {
@@ -55,7 +59,7 @@ header .nav-btn.left { left: 8px; font-size: 28px; }
   font-size: 16px; min-width: 0;
 }
 .perso-item input[type="number"], .perso-add input[type="number"] {
-  width: 70px; border: 1px solid #ddd; border-radius: 6px; padding: 8px;
+  width: 62px; border: 1px solid #ddd; border-radius: 6px; padding: 8px 6px;
   font-size: 16px; text-align: right;
 }
 .perso-add input[type="number"] { width: 100%; }
@@ -80,6 +84,15 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
 }
 .field input:focus { outline: none; border-color: #2e7d32; background: #fff; }
 .field .result { font-size: 18px; font-weight: 600; color: #2e7d32; padding: 10px 0; }
+.row-hint {
+  grid-column: 1 / -1; font-size: 11px; color: #888;
+  margin-top: 2px;
+}
+.btn-pc {
+  background: none; border: 1px solid #ddd; border-radius: 6px; color: #666;
+  font-size: 11px; cursor: pointer; padding: 6px 4px; line-height: 1;
+}
+.btn-pc b { color: #2e7d32; }
 .row .name-field { grid-column: 1 / -1; position: relative; }
 .row .name-field input { font-weight: 500; }
 .dropdown {
@@ -146,7 +159,9 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
 <main id="view-perso" class="hidden">
   <div class="perso-add">
     <input type="text" id="new-nom" placeholder="Nom de l'aliment" autocomplete="off">
+    <input type="number" inputmode="decimal" id="new-unite" placeholder="g/pc">
     <input type="number" inputmode="decimal" id="new-pct" placeholder="% gluc.">
+    <p class="perso-add-hint">« g/pc » : poids d'une portion, à remplir pour compter en unités plutôt qu'en grammes (ex. madeleine = 30 g).</p>
     <button class="btn-add" onclick="addPerso()">+ Ajouter</button>
   </div>
   <div class="perso-list" id="perso-list"></div>
@@ -185,6 +200,7 @@ function renderPerso() {
   list.innerHTML = perso.map((p, i) =>
     `<div class="perso-item">` +
     `<input type="text" value="${esc(p.nom)}" data-pi="${i}" data-pf="nom">` +
+    `<input type="number" inputmode="decimal" value="${p.unite || ''}" data-pi="${i}" data-pf="unite" placeholder="g/pc">` +
     `<input type="number" inputmode="decimal" value="${p.pct}" data-pi="${i}" data-pf="pct" placeholder="%">` +
     `<span style="font-size:12px;color:#888">%</span>` +
     `<button class="perso-del" data-pdel="${i}">×</button>` +
@@ -195,15 +211,18 @@ function renderPerso() {
 function addPerso() {
   const nomInp = document.getElementById('new-nom');
   const pctInp = document.getElementById('new-pct');
+  const uniteInp = document.getElementById('new-unite');
   const nom = nomInp.value.trim();
   const pct = parseFloat(pctInp.value) || 0;
+  const unite = parseFloat(uniteInp.value) || 0;
   if (!nom) { nomInp.focus(); return; }
   if (pct <= 0) { pctInp.focus(); return; }
   if (perso.find(p => p.nom === nom)) { nomInp.focus(); return; }
-  perso.push({ nom, pct });
+  perso.push(unite > 0 ? { nom, pct, unite } : { nom, pct });
   savePerso();
   nomInp.value = '';
   pctInp.value = '';
+  uniteInp.value = '';
   renderPerso();
   nomInp.focus();
 }
@@ -228,6 +247,7 @@ viewPerso.addEventListener('input', e => {
   const f = inp.dataset.pf;
   if (f === 'nom') perso[+i].nom = inp.value;
   else if (f === 'pct') perso[+i].pct = parseFloat(inp.value) || 0;
+  else if (f === 'unite') perso[+i].unite = parseFloat(inp.value) || 0;
   savePerso();
 });
 
@@ -239,17 +259,22 @@ function save() {
   localStorage.setItem('glucides-rows', JSON.stringify(rows));
 }
 
+// A row holds either grams or a number of portions; unite is the weight of one portion
+function grams(r) { return (r.pc && r.unite ? r.poids * r.unite : r.poids) || 0; }
+function gluc(r) { return grams(r) * r.pct / 100 || 0; }
+function r1(n) { return Math.round(n * 10) / 10; }
+
 function update() {
   let t = 0;
-  rows.forEach(r => { t += (r.poids * r.pct / 100) || 0; });
-  totalEl.textContent = Math.round(t * 10) / 10;
+  rows.forEach(r => { t += gluc(r); });
+  totalEl.textContent = r1(t);
   save();
 }
 
 function render() {
   container.innerHTML = '';
   rows.forEach((r, i) => {
-    const g = Math.round((r.poids * r.pct / 100 || 0) * 10) / 10;
+    const g = r1(gluc(r));
     const div = document.createElement('div');
     div.className = 'row';
     div.innerHTML = `
@@ -260,7 +285,7 @@ function render() {
         <div class="dropdown" data-i="${i}"></div>
       </div>
       <div class="field">
-        <label>Poids (g)</label>
+        <label>${r.pc ? 'Nombre' : 'Poids (g)'}</label>
         <input type="number" inputmode="decimal" value="${r.poids || ''}"
           placeholder="0" data-i="${i}" data-f="poids">
       </div>
@@ -274,9 +299,11 @@ function render() {
         <div class="result">${g}</div>
       </div>
       <div class="row-actions">
+        ${r.unite ? `<button class="btn-pc" onclick="togglePc(${i})" title="Grammes ou portions">${r.pc ? 'g|<b>pc</b>' : '<b>g</b>|pc'}</button>` : ''}
         <button class="btn-save-perso" onclick="saveRowPerso(${i})" title="Sauvegarder en perso">★</button>
         <button class="btn-delete" onclick="delRow(${i})">×</button>
       </div>
+      ${r.pc ? `<div class="row-hint">${r.poids || 0} × ${r.unite} g = ${r1(grams(r))} g</div>` : ''}
     `;
     container.appendChild(div);
   });
@@ -307,9 +334,9 @@ container.addEventListener('input', e => {
   const i = +inp.dataset.i, f = inp.dataset.f;
   rows[i][f] = f === 'nom' ? inp.value : parseFloat(inp.value) || 0;
   const row = inp.closest('.row');
-  const res = row.querySelector('.result');
-  const g = Math.round((rows[i].poids * rows[i].pct / 100 || 0) * 10) / 10;
-  res.textContent = g;
+  row.querySelector('.result').textContent = r1(gluc(rows[i]));
+  const hint = row.querySelector('.row-hint');
+  if (hint) hint.textContent = `${rows[i].poids || 0} × ${rows[i].unite} g = ${r1(grams(rows[i]))} g`;
   update();
   if (f === 'nom') showDropdown(inp, i);
 });
@@ -322,7 +349,7 @@ function showDropdown(inp, i) {
   // Priority order: perso, then light base, then full base — deduped by name, 8 max
   const all = [];
   perso.filter(a => norm(a.nom).includes(q))
-    .forEach(a => all.push({nom: a.nom, pct: a.pct, perso: true}));
+    .forEach(a => all.push({nom: a.nom, pct: a.pct, unite: a.unite || 0, perso: true}));
   [...ALIMENTS_LIGHT, ...ALIMENTS_FULL].filter(a => norm(a.nom).includes(q)).forEach(a => {
     if (!all.find(x => x.nom === a.nom)) all.push({nom: a.nom, pct: a.pct, perso: false});
   });
@@ -332,7 +359,8 @@ function showDropdown(inp, i) {
 
   const html = matches.map((a, j) =>
     `<div data-ai="${i}" data-aj="${j}" class="${j===0?'active':''}">` +
-    `${a.perso ? '★ ' : ''}${esc(a.nom)}<span class="pct">${a.pct}%</span>` +
+    `${a.perso ? '★ ' : ''}${esc(a.nom)}` +
+    `<span class="pct">${a.unite ? a.unite + ' g/pc · ' : ''}${a.pct}%</span>` +
     `${a.perso ? '<span class="del-perso" data-delperso="'+esc(a.nom)+'">×</span>' : ''}` +
     `</div>`
   ).join('');
@@ -378,22 +406,32 @@ function saveRowPerso(i) {
     return;
   }
   if (perso.find(p => p.nom === nom)) return;
-  perso.push({nom, pct});
+  const item = {nom, pct};
+  if (rows[i].unite) item.unite = rows[i].unite;
+  perso.push(item);
   savePerso();
   container.children[i].querySelector('.btn-save-perso').classList.add('saved');
 }
 
 function selectAliment(i, a) {
-  rows[i].nom = a.nom;
-  rows[i].pct = a.pct;
-  const row = container.children[i];
-  row.querySelector('input[data-f="nom"]').value = a.nom;
-  row.querySelector('input[data-f="pct"]').value = a.pct;
-  const res = row.querySelector('.result');
-  const g = Math.round((rows[i].poids * rows[i].pct / 100 || 0) * 10) / 10;
-  res.textContent = g;
-  update();
-  row.querySelector('input[data-f="poids"]').focus();
+  const r = rows[i];
+  r.nom = a.nom;
+  r.pct = a.pct;
+  // A perso food with a portion weight switches the row to counting portions
+  r.unite = a.unite || 0;
+  r.pc = !!a.unite;
+  if (r.pc && r.poids > 0) r.poids = r1(r.poids / r.unite);
+  render(); // the quantity label and the g|pc button depend on the mode
+  container.children[i].querySelector('input[data-f="poids"]').focus();
+}
+
+function togglePc(i) {
+  const r = rows[i];
+  if (!r.unite) return;
+  r.poids = r.pc ? r1(r.poids * r.unite) : r1(r.poids / r.unite);
+  r.pc = !r.pc;
+  render();
+  container.children[i].querySelector('input[data-f="poids"]').focus();
 }
 
 document.addEventListener('click', e => {
