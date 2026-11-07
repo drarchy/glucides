@@ -84,7 +84,10 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
 }
 .field input:focus { outline: none; border-color: #2e7d32; background: #fff; }
 .field .result { font-size: 18px; font-weight: 600; color: #2e7d32; padding: 10px 0; }
-.field .hint { font-size: 11px; color: #888; margin-top: 2px; }
+.row-hint {
+  grid-column: 1 / -1; font-size: 11px; color: #888;
+  margin-top: 2px; text-align: right;
+}
 .btn-pc {
   background: none; border: 1px solid #ddd; border-radius: 6px; color: #666;
   font-size: 11px; cursor: pointer; padding: 6px 4px; line-height: 1;
@@ -285,7 +288,6 @@ function render() {
         <label>${r.pc ? 'Nombre' : 'Poids (g)'}</label>
         <input type="number" inputmode="decimal" value="${r.poids || ''}"
           placeholder="0" data-i="${i}" data-f="poids">
-        ${r.pc ? `<div class="hint">${r.poids || 0} × ${r.unite} g = ${r1(grams(r))} g</div>` : ''}
       </div>
       <div class="field">
         <label>Glucides %</label>
@@ -301,6 +303,7 @@ function render() {
         <button class="btn-save-perso" onclick="saveRowPerso(${i})" title="Sauvegarder en perso">★</button>
         <button class="btn-delete" onclick="delRow(${i})">×</button>
       </div>
+      ${r.pc ? `<div class="row-hint">${r.poids || 0} × ${r.unite} g = ${r1(grams(r))} g</div>` : ''}
     `;
     container.appendChild(div);
   });
@@ -332,7 +335,7 @@ container.addEventListener('input', e => {
   rows[i][f] = f === 'nom' ? inp.value : parseFloat(inp.value) || 0;
   const row = inp.closest('.row');
   row.querySelector('.result').textContent = r1(gluc(rows[i]));
-  const hint = row.querySelector('.hint');
+  const hint = row.querySelector('.row-hint');
   if (hint) hint.textContent = `${rows[i].poids || 0} × ${rows[i].unite} g = ${r1(grams(rows[i]))} g`;
   update();
   if (f === 'nom') showDropdown(inp, i);
