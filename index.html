@@ -29,6 +29,21 @@ header .nav-btn {
 header .nav-btn.right { right: 8px; }
 header .nav-btn.left { left: 8px; font-size: 28px; }
 .hidden { display: none; }
+.ref-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; background: #f5f5f5; border-bottom: 1px solid #e0e0e0;
+  font-size: 13px; color: #555;
+}
+.ref-bar .ref-text { flex: 1; }
+.ref-bar .delta { font-weight: 700; }
+.ref-bar .delta.manque { color: #ef6c00; }
+.ref-bar .delta.depasse { color: #c62828; }
+.ref-bar .delta.egal { color: #2e7d32; }
+.ref-bar .ref-todo { display: block; font-size: 12px; color: #ef6c00; }
+.ref-bar button {
+  background: none; border: 1px solid #ddd; border-radius: 8px; color: #666;
+  font-size: 15px; cursor: pointer; padding: 6px 10px; line-height: 1;
+}
 .update-bar {
   display: none; width: 100%; padding: 10px; border: none;
   background: #f9a825; color: #3e2723; font-size: 14px; font-weight: 600;
@@ -147,11 +162,18 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
   <button class="nav-btn left hidden" id="btn-back" title="Retour" onclick="history.back()">‹</button>
 </header>
 
+<div class="ref-bar hidden" id="ref-bar">
+  <span class="ref-text" id="ref-text"></span>
+  <button id="btn-ref-load" onclick="loadRef()" title="Recharger le repas mémorisé">↻</button>
+  <button id="btn-ref-clear" onclick="clearRef()" title="Effacer la référence">✕</button>
+</div>
+
 <button class="update-bar" id="update-bar">Nouvelle version disponible — Recharger</button>
 
 <main id="view-repas">
   <div id="rows"></div>
   <button class="btn-add" onclick="addRow()">+ Ajouter une ligne</button>
+  <button class="btn-reset" onclick="setRef()">Mémoriser comme référence</button>
   <button class="btn-reset" onclick="resetAll()">Nouveau repas</button>
   <p style="margin-top:24px;font-size:11px;color:#aaa;text-align:center;line-height:1.4">Valeurs indicatives pouvant varier selon les produits et préparations. Ne se substitue pas à un avis médical.<br>Données : Anses, Table Ciqual 2025 — Licence Ouverte.</p>
 </main>
@@ -172,6 +194,8 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
 <script>
 let rows = JSON.parse(localStorage.getItem('glucides-rows') || '[]');
 let perso = JSON.parse(localStorage.getItem('glucides-perso') || '[]');
+// Reference meal: what was planned, to compare the actual intake against
+let ref = JSON.parse(localStorage.getItem('glucides-ref') || 'null');
 
 const container = document.getElementById('rows');
 const totalEl = document.getElementById('total');
@@ -183,6 +207,7 @@ function route() {
   viewPerso.classList.toggle('hidden', !onPerso);
   document.getElementById('view-repas').classList.toggle('hidden', onPerso);
   document.getElementById('header-total').classList.toggle('hidden', onPerso);
+  document.getElementById('ref-bar').classList.toggle('hidden', onPerso || !ref);
   document.getElementById('btn-perso').classList.toggle('hidden', onPerso);
   document.getElementById('btn-back').classList.toggle('hidden', !onPerso);
   document.getElementById('page-title').textContent = onPerso ? '★ Aliments perso' : 'Glucides du repas';
@@ -268,7 +293,48 @@ function update() {
   let t = 0;
   rows.forEach(r => { t += gluc(r); });
   totalEl.textContent = r1(t);
+  renderRef(t);
   save();
+}
+
+function saveRef() {
+  if (ref) localStorage.setItem('glucides-ref', JSON.stringify(ref));
+  else localStorage.removeItem('glucides-ref');
+}
+
+function renderRef(total) {
+  const bar = document.getElementById('ref-bar');
+  bar.classList.toggle('hidden', !ref || location.hash === '#perso');
+  if (!ref) return;
+  const d = r1(total - ref.total);
+  const cls = d < 0 ? 'manque' : d > 0 ? 'depasse' : 'egal';
+  document.getElementById('ref-text').innerHTML =
+    `Réf. ${r1(ref.total)} g · <span class="delta ${cls}">Δ ${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(d)} g</span>` +
+    (d < 0 ? `<span class="ref-todo">${Math.abs(d)} g à remplacer</span>` : '');
+}
+
+function setRef() {
+  let t = 0;
+  rows.forEach(r => { t += gluc(r); });
+  if (!t) return;
+  ref = { rows: JSON.parse(JSON.stringify(rows.filter(r => r.nom || r.poids || r.pct))), total: r1(t) };
+  saveRef();
+  renderRef(t);
+}
+
+function loadRef() {
+  if (!ref) return;
+  const saisie = rows.some(r => r.nom || r.poids || r.pct);
+  if (saisie && !confirm('Remplacer la saisie en cours par le repas mémorisé ?')) return;
+  rows = JSON.parse(JSON.stringify(ref.rows));
+  if (!rows.length) rows.push({ nom: '', poids: 0, pct: 0 });
+  render();
+}
+
+function clearRef() {
+  ref = null;
+  saveRef();
+  renderRef(0);
 }
 
 function render() {
