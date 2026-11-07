@@ -66,6 +66,9 @@ header .nav-btn.left { left: 8px; font-size: 28px; }
   background: #fff; border-radius: 12px; padding: 4px;
   box-shadow: 0 1px 3px rgba(0,0,0,.1);
 }
+.perso-backup { margin-top: 16px; }
+.perso-backup .btn-reset { margin-top: 8px; }
+.perso-backup .perso-add-hint { margin-top: 12px; }
 .perso-item {
   display: flex; align-items: center; gap: 8px; padding: 8px;
   border-bottom: 1px solid #f0f0f0;
@@ -188,6 +191,13 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
     <button class="btn-add" onclick="addPerso()">+ Ajouter</button>
   </div>
   <div class="perso-list" id="perso-list"></div>
+
+  <div class="perso-backup">
+    <button class="btn-reset" onclick="exportPerso()">Exporter (sauvegarde)</button>
+    <button class="btn-reset" onclick="document.getElementById('import-file').click()">Importer</button>
+    <input type="file" accept="application/json,.json" id="import-file" class="hidden">
+    <p class="perso-add-hint">Ces aliments ne vivent que sur cet appareil : ils sont perdus si l'app est désinstallée ou les données du site effacées. L'export produit un fichier à conserver, réimportable ici ou sur un autre téléphone.</p>
+  </div>
 </main>
 
 <script src="aliments-light.js"></script>
@@ -251,6 +261,61 @@ function addPerso() {
   uniteInp.value = '';
   renderPerso();
   nomInp.focus();
+}
+
+function exportPerso() {
+  if (!perso.length) return;
+  const date = new Date().toISOString().slice(0, 10);
+  const blob = new Blob([JSON.stringify({ app: 'glucides', v: 1, date, perso }, null, 2)],
+    { type: 'application/json' });
+  const name = 'glucides-perso-' + date + '.json';
+  const file = new File([blob], name, { type: 'application/json' });
+  // On mobile a download is awkward inside a PWA, so prefer the share sheet
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({ files: [file], title: name }).catch(() => {});
+    return;
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+document.getElementById('import-file').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (file) importPerso(file);
+  e.target.value = ''; // so the same file can be imported twice
+});
+
+function importPerso(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    let data;
+    try { data = JSON.parse(reader.result); } catch (err) { data = null; }
+    // Accept both the exported envelope and a bare array (hand-edited file)
+    const list = Array.isArray(data) ? data : data && Array.isArray(data.perso) ? data.perso : null;
+    if (!list) { alert('Fichier illisible : ce n\'est pas un export d\'aliments perso.'); return; }
+    let added = 0, dup = 0, bad = 0;
+    list.forEach(e => {
+      const nom = e && typeof e.nom === 'string' ? e.nom.trim() : '';
+      const pct = parseFloat(e && e.pct) || 0;
+      const unite = parseFloat(e && e.unite) || 0;
+      if (!nom || pct <= 0) { bad++; return; }
+      if (perso.find(p => p.nom === nom)) { dup++; return; }
+      perso.push(unite > 0 ? { nom, pct, unite } : { nom, pct });
+      added++;
+    });
+    if (!added && !dup) { alert('Aucun aliment valide dans ce fichier.'); return; }
+    savePerso();
+    renderPerso();
+    alert(added + ' aliment(s) ajouté(s)'
+      + (dup ? ', ' + dup + ' déjà présent(s) ignoré(s)' : '')
+      + (bad ? ', ' + bad + ' entrée(s) invalide(s)' : '') + '.');
+  };
+  reader.onerror = () => alert('Lecture du fichier impossible.');
+  reader.readAsText(file);
 }
 
 viewPerso.addEventListener('keydown', e => {

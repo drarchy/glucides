@@ -1,4 +1,4 @@
-const CACHE_NAME = 'glucides-v12';
+const CACHE_NAME = 'glucides-v13';
 const ASSETS = ['./', 'index.html', 'aliments-light.js', 'aliments-full.js', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 const NET_TIMEOUT = 5000;
 

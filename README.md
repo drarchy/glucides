@@ -37,6 +37,15 @@ Nombre [2]   Gluc% [50]   = 30 g   [g|pc]
 Le bouton `g|pc` de la ligne permet de repasser en grammes (demi-portion, paquet pesé) en
 convertissant la valeur saisie.
 
+**Sauvegarde** — les aliments perso ne vivent que dans le `localStorage` de l'appareil : ils sont
+perdus si la PWA est désinstallée ou les données du site effacées. Les boutons `Exporter` /
+`Importer` de la page produisent et relisent un fichier `glucides-perso-AAAA-MM-JJ.json`, ce qui
+couvre la sauvegarde et le passage à un autre téléphone. L'import est une **fusion non
+destructive** : les noms déjà présents sont ignorés, rien n'est écrasé ni supprimé.
+
+C'est volontairement le seul mécanisme de persistance hors de l'appareil : aucune donnée ne
+quitte le téléphone, donc pas de serveur, pas de compte, et rien à héberger.
+
 ### Repas de référence
 
 Quand un repas prévu n'est pas entièrement consommé, « Mémoriser comme référence » enregistre
