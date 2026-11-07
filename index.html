@@ -22,22 +22,11 @@ header h1 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
 header .total { font-size: 32px; font-weight: 700; }
 header .total small { font-size: 16px; font-weight: 400; }
 .source-bar {
-  display: flex; justify-content: center; align-items: center; gap: 6px;
+  display: flex; justify-content: center; align-items: center;
   padding: 8px 12px; background: #f5f5f5; border-bottom: 1px solid #e0e0e0;
 }
-.source-bar .pills {
-  display: inline-flex; border-radius: 8px; overflow: hidden;
-  border: 1px solid #ccc;
-}
-.source-bar .pills button {
-  border: none; padding: 6px 14px; font-size: 13px; cursor: pointer;
-  background: #fff; color: #555; font-weight: 500;
-}
-.source-bar .pills button.active {
-  background: #2e7d32; color: #fff;
-}
 .source-bar .perso-link {
-  font-size: 12px; color: #2e7d32; margin-left: 4px;
+  font-size: 13px; color: #2e7d32;
   cursor: pointer; text-decoration: underline;
 }
 .perso-panel {
@@ -144,12 +133,7 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
   <div class="total"><span id="total">0</span><small> g</small></div>
 </header>
 
-<div class="source-bar">
-  <div class="pills">
-    <button id="btn-light" onclick="setSource('light')">Light</button>
-    <button id="btn-full" onclick="setSource('full')">Complète</button>
-    <button id="btn-all" onclick="setSource('all')">Toutes</button>
-  </div>
+<div class="source-bar" id="source-bar">
   <span class="perso-link" id="perso-link" onclick="openPersoPanel()"></span>
 </div>
 
@@ -174,37 +158,15 @@ main { padding: 12px; max-width: 600px; margin: 0 auto; }
 <script src="aliments-full.js"></script>
 <script>
 let rows = JSON.parse(localStorage.getItem('glucides-rows') || '[]');
-let source = localStorage.getItem('glucides-source') || 'light';
 let perso = JSON.parse(localStorage.getItem('glucides-perso') || '[]');
 
 const container = document.getElementById('rows');
 const totalEl = document.getElementById('total');
 
-function getBase() {
-  if (source === 'all') {
-    const seen = new Set();
-    return [...ALIMENTS_LIGHT, ...ALIMENTS_FULL].filter(a => {
-      if (seen.has(a.nom)) return false;
-      seen.add(a.nom);
-      return true;
-    });
-  }
-  return source === 'full' ? ALIMENTS_FULL : ALIMENTS_LIGHT;
-}
-
-function setSource(s) {
-  source = s;
-  localStorage.setItem('glucides-source', s);
-  updateSourceUI();
-}
-
-function updateSourceUI() {
-  document.getElementById('btn-light').classList.toggle('active', source === 'light');
-  document.getElementById('btn-full').classList.toggle('active', source === 'full');
-  document.getElementById('btn-all').classList.toggle('active', source === 'all');
+function updatePersoLink() {
   const pl = document.getElementById('perso-link');
   pl.textContent = perso.length ? '★ ' + perso.length + ' perso' : '';
-  pl.style.display = perso.length ? '' : 'none';
+  document.getElementById('source-bar').style.display = perso.length ? '' : 'none';
 }
 
 function openPersoPanel() {
@@ -254,7 +216,7 @@ document.getElementById('perso-panel').addEventListener('input', e => {
 
 function savePerso() {
   localStorage.setItem('glucides-perso', JSON.stringify(perso));
-  updateSourceUI();
+  updatePersoLink();
 }
 
 function save() {
@@ -341,14 +303,11 @@ function showDropdown(inp, i) {
   const q = norm(inp.value.trim());
   if (q.length === 0) { dd.classList.remove('open'); return; }
 
-  // Search in perso first, then in active base
-  const pMatches = perso.filter(a => norm(a.nom).includes(q));
-  const bMatches = getBase().filter(a => norm(a.nom).includes(q));
-
-  // Merge: perso first (starred), then base, limit total to 8
+  // Priority order: perso, then light base, then full base — deduped by name, 8 max
   const all = [];
-  pMatches.forEach(a => all.push({nom: a.nom, pct: a.pct, perso: true}));
-  bMatches.forEach(a => {
+  perso.filter(a => norm(a.nom).includes(q))
+    .forEach(a => all.push({nom: a.nom, pct: a.pct, perso: true}));
+  [...ALIMENTS_LIGHT, ...ALIMENTS_FULL].filter(a => norm(a.nom).includes(q)).forEach(a => {
     if (!all.find(x => x.nom === a.nom)) all.push({nom: a.nom, pct: a.pct, perso: false});
   });
   const matches = all.slice(0, 8);
@@ -446,7 +405,7 @@ function resetAll() {
   render();
 }
 
-updateSourceUI();
+updatePersoLink();
 if (!rows.length) addRow(); else render();
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
