@@ -318,6 +318,7 @@ function setRef() {
   let t = 0;
   rows.forEach(r => { t += gluc(r); });
   if (!t) return;
+  if (ref && !confirm('Remplacer le repas de référence (' + r1(ref.total) + ' g) ?')) return;
   ref = { rows: JSON.parse(JSON.stringify(rows.filter(r => r.nom || r.poids || r.pct))), total: r1(t) };
   saveRef();
   renderRef(t);
