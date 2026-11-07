@@ -440,6 +440,8 @@ function delRow(i) {
 }
 
 function resetAll() {
+  const saisie = rows.some(r => r.nom || r.poids || r.pct);
+  if (saisie && !confirm('Effacer la saisie en cours et commencer un nouveau repas ?')) return;
   rows = [];
   render();
 }
